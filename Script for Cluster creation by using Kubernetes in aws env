@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# Set variables
+CLUSTER_NAME="my-kubernetes-cluster"
+NODE_INSTANCE_TYPE="t2.micro"
+NODE_COUNT=2
+REGION="us-west-2"
+
+# Create the EKS cluster
+aws eks create-cluster \
+  --name ${CLUSTER_NAME} \
+  --region ${REGION} \
+  --kubernetes-version 1.18 \
+  --role-arn arn:aws:iam::123456789012:role/eks-service-role \
+  --resources-vpc-config subnetIds=subnet-0123456789abcdef0,subnet-0123456789abcdef1,securityGroupIds=sg-0123456789abcdef
+
+# Wait for the cluster to become active
+aws eks wait cluster-active --name ${CLUSTER_NAME}
+
+# Create a config map for the Kubernetes cluster
+aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}
+
+# Create worker nodes for the cluster
+aws eks create-nodegroup \
+  --cluster-name ${CLUSTER_NAME} \
+  --nodegroup-name ${CLUSTER_NAME}-workers \
+  --node-role "worker" \
+  --subnets subnet-0123456789abcdef0,subnet-0123456789abcdef1 \
+  --instance-types ${NODE_INSTANCE_TYPE} \
+  --node-private-networking \
+  --node-ami-type "AL2_x86_64" \
+  --scaling-config minSize=1,maxSize=${NODE_COUNT},desiredSize=${NODE_COUNT} \
+  --disk-size 20 \
+  --region ${REGION}
+
+# Wait for the worker nodes to become active
+aws eks wait nodegroup-active --cluster-name ${CLUSTER_NAME} --nodegroup-name ${CLUSTER_NAME}-workers
+
+
+
+Note -
+
+In this script, you would need to replace the values of CLUSTER_NAME, NODE_INSTANCE_TYPE, NODE_COUNT, and REGION to match your desired configuration.
+
+This script assumes that you have already set up the necessary AWS credentials and installed the AWS CLI. You may also need to adjust the VPC configuration to match your specific environment.
